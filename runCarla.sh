@@ -1,0 +1,1 @@
+/opt/carla-simulator/CarlaUE4.sh -fps=10 -quality-level=Low -no-rendering
