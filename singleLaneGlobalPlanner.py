@@ -20,12 +20,18 @@ class SingleLaneGlobalRoutePlanner(object):
         self._previous_decision = RoadOption.VOID
 
         # Build the graph
-        self._build_topology()
-        self._build_graph()
-        self._find_loose_ends()
-        self._lane_change_link()
+        #self._build_topology()
+        #self._build_graph()
+        #self._find_loose_ends()
+        #self._lane_change_link()
 
     def trace_route(self, origin, destination):
+        # Build the graph
+        self._build_topology(origin, destination)
+        self._build_graph()
+        self._find_loose_ends()
+        #self._lane_change_link()
+
         route_trace = []
         route = self._path_search(origin, destination)
         current_waypoint = self._wmap.get_waypoint(origin)
@@ -35,6 +41,7 @@ class SingleLaneGlobalRoutePlanner(object):
             road_option = self._turn_decision(i, route)
             edge = self._graph.edges[route[i], route[i+1]]
             path = []
+            print('waypoint', current_waypoint.transform)
 
             if edge['type'] != RoadOption.LANEFOLLOW and edge['type'] != RoadOption.VOID:
                 route_trace.append((current_waypoint, road_option))
@@ -64,7 +71,21 @@ class SingleLaneGlobalRoutePlanner(object):
 
         return route_trace
 
-    def _build_topology(self):
+    def _build_topology(self, origin, destination):
+        self._topology = []
+        current_waypoint = self._wmap.get_waypoint(origin)
+        destination_waypoint = self._wmap.get_waypoint(destination)
+        distance = abs((origin.__abs__() - destination.__abs__()).x)
+        seg_dict = dict()
+        seg_dict['entry'], seg_dict['exit'] = current_waypoint, destination_waypoint
+        l1, l2 = origin, destination
+        x1, y1, z1, x2, y2, z2 = np.round([l1.x, l1.y, l1.z, l2.x, l2.y, l2.z], 0)
+        seg_dict['entryxyz'], seg_dict['exitxyz'] = (x1, y1, z1), (x2, y2, z2)
+        print('next', distance, origin, destination, current_waypoint.next(distance)[0].transform)
+        seg_dict['path'] = current_waypoint.next(distance)
+        self._topology.append(seg_dict)
+
+        """
         self._topology = []
         # Retrieving waypoints to construct a detailed topology
         for segment in self._wmap.get_topology():
@@ -86,6 +107,7 @@ class SingleLaneGlobalRoutePlanner(object):
             else:
                 seg_dict['path'].append(wp1.next(self._sampling_resolution)[0])
             self._topology.append(seg_dict)
+            """
 
     def _build_graph(self):
         self._graph = nx.DiGraph()
@@ -226,6 +248,7 @@ class SingleLaneGlobalRoutePlanner(object):
             self._graph, source=start[0], target=end[0],
             heuristic=self._distance_heuristic, weight='length')
         route.append(end[1])
+
         return route
 
     def _successive_last_intersection_edge(self, index, route):

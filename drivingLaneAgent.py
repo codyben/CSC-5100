@@ -45,6 +45,9 @@ class DrivingLaneAgent(object):
         self._local_planner = SingleLaneLocalPlanner(self._vehicle, opt_dict=opt_dict)
         self._global_planner = SingleLaneGlobalRoutePlanner(self._map, self._sampling_resolution)
 
+    def get_vehicle(self):
+        return self._vehicle
+
     def add_emergency_stop(self, control):
         control.throttle = 0.0
         control.brake = self._max_brake
@@ -64,18 +67,18 @@ class DrivingLaneAgent(object):
         return self._global_planner
 
     def set_destination(self, end_location, start_location=None):
-        if not start_location:
-            start_location = self._local_planner.target_waypoint.transform.location
-            clean_queue = True
-        else:
-            start_location = self._vehicle.get_location()
-            clean_queue = False
+        #if not start_location:
+        #    start_location = self._local_planner.target_waypoint.transform.location
+        #    clean_queue = True
+        #else:
+        #    start_location = self._vehicle.get_location()
+        #    clean_queue = False
 
-        # start_waypoint = self._map.get_waypoint(start_location)
-        # end_waypoint = self._map.get_waypoint(end_location)
+        start_waypoint = self._map.get_waypoint(start_location)
+        end_waypoint = self._map.get_waypoint(end_location)
 
-        # route_trace = self.trace_route(start_waypoint, end_waypoint)
-        # self._local_planner.set_global_plan(route_trace, clean_queue=clean_queue)
+        route_trace = self.trace_route(start_waypoint, end_waypoint)
+        self.set_global_plan(route_trace, clean_queue=True)
 
     def set_global_plan(self, plan, stop_waypoint_creation=True, clean_queue=True):
         self._local_planner.set_global_plan(

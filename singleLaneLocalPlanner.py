@@ -105,7 +105,6 @@ class SingleLaneLocalPlanner(object):
         for _ in range(k):
             last_waypoint = self._waypoints_queue[-1][0]
             next_waypoints = list(last_waypoint.next(self._sampling_radius))
-
             if len(next_waypoints) == 0:
                 break
             elif len(next_waypoints) == 1:
@@ -126,6 +125,7 @@ class SingleLaneLocalPlanner(object):
         if clean_queue:
             self._waypoints_queue.clear()
 
+        """
         # Remake the waypoints queue if the new plan has a higher length than the queue
         new_plan_length = len(current_plan) + len(self._waypoints_queue)
         if new_plan_length > self._waypoints_queue.maxlen:
@@ -133,13 +133,14 @@ class SingleLaneLocalPlanner(object):
             for wp in self._waypoints_queue:
                 new_waypoint_queue.append(wp)
             self._waypoints_queue = new_waypoint_queue
+        """
 
         for elem in current_plan:
             self._waypoints_queue.append(elem)
 
         self._stop_waypoint_creation = stop_waypoint_creation
 
-    def run_step(self, debug=False):
+    def run_step(self, debug=True):
         if self._follow_speed_limits:
             self._target_speed = self._vehicle.get_speed_limit()
 

@@ -35,7 +35,8 @@ class ProjectClient(object):
         self.client = None
         self.world = None
         self.camera = None
-        self.car = None
+        # self.car = None
+        self.agents = []
         self.display = None
         self.image = None
         self.capture = True
@@ -54,17 +55,22 @@ class ProjectClient(object):
 
     def setup_car(self):
         car_bp = self.world.get_blueprint_library().filter('vehicle.*')[0]
-        location = carla.Transform(carla.Location(x=-5.746142, y=-175.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-        self.car = self.world.spawn_actor(car_bp, location)
-        self.agent = DrivingLaneAgent(self.car, 60)
+        origin = carla.Transform(carla.Location(x=-5.746142, y=-175.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        car = self.world.spawn_actor(car_bp, origin)
+        agent = DrivingLaneAgent(car, 60)
         destinationLocation = carla.Transform(carla.Location(x=-394.648987, y=26.758696, z=0.000000), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         destinationWaypoint = self.world.get_map().get_waypoint(destinationLocation.location)
         self.destination = destinationWaypoint # waypoints[-1]
-        self.agent.set_destination(self.destination.transform.location)
+        print('origin and destination', self.destination.transform.location, origin.location)
+        agent.set_destination(self.destination.transform.location, origin.location)
+        self.agents.append(agent)
+        print(self.agents)
 
     def setup_camera(self):
-        camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
-        self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.car)
+        #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
+        #self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.car)
+        camera_transform = carla.Transform(carla.Location(x=-5.746142, y=-185.418823, z=5.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform)
         weak_self = weakref.ref(self)
         self.camera.listen(lambda image: weak_self().set_image(weak_self, image))
         calibration = np.identity(3)
@@ -106,6 +112,7 @@ class ProjectClient(object):
             self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
             pygame_clock = pygame.time.Clock()
             self.set_synchronous_mode(True)
+            counter = 0
             while True:
                 self.world.tick()
                 self.capture = True
@@ -113,13 +120,25 @@ class ProjectClient(object):
                 self.render(self.display)
                 pygame.display.flip()
                 pygame.event.pump()
-                if self.agent.done():
-                    print("The target has been reached, stopping the simulation")
-                self.car.apply_control(self.agent.run_step())
+                counter = counter + 1
+                #print(counter)
+                if counter % 50 == 0:
+                    self.setup_car()
+                innerCounter = 1
+                for agent in self.agents:
+                    #print("car")
+                    #print(innerCounter)
+                    if agent.done():
+                        print("The target has been reached, stopping the simulation")
+                    agent.get_vehicle().apply_control(agent.run_step())
+                    innerCounter = innerCounter + 1
+                #self.car.apply_control(self.agent.run_step())
         finally:
             self.set_synchronous_mode(False)
             self.camera.destroy()
-            self.car.destroy()
+            #self.car.destroy()
+            for agent in self.agents:
+                agent.get_vehicle().destroy()
             pygame.quit()
 
 try:
