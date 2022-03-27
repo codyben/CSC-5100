@@ -22,9 +22,10 @@ except IndexError:
 
 import carla
 import weakref
-from drivingLaneAgent import DrivingLaneAgent
+from humanAgent import HumanAgent
 import pygame
 import numpy as np
+import random
 
 VIEW_WIDTH = 1920//2
 VIEW_HEIGHT = 1080//2
@@ -57,7 +58,7 @@ class ProjectClient(object):
         car_bp = self.world.get_blueprint_library().filter('vehicle.*')[0]
         origin = carla.Transform(carla.Location(x=-9.746142, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         car = self.world.spawn_actor(car_bp, origin)
-        agent = DrivingLaneAgent(car, 60)
+        agent = HumanAgent(car, target_speed=random.randint(30,100))
         destinationLocation = carla.Transform(carla.Location(x=-397.648987, y=26.758696, z=0.000000), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         destinationWaypoint = self.world.get_map().get_waypoint(destinationLocation.location)
         self.destination = destinationWaypoint # waypoints[-1]
@@ -67,10 +68,10 @@ class ProjectClient(object):
         print(self.agents)
 
     def setup_camera(self):
-        #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
-        #self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.car)
-        camera_transform = carla.Transform(carla.Location(x=-9.746142, y=-185.418823, z=5.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-        self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform)
+        camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
+        self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.agents[0].get_vehicle())
+        #camera_transform = carla.Transform(carla.Location(x=-9.746142, y=-185.418823, z=5.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        #self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform)
         weak_self = weakref.ref(self)
         self.camera.listen(lambda image: weak_self().set_image(weak_self, image))
         calibration = np.identity(3)
