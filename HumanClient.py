@@ -41,6 +41,7 @@ class ProjectClient(object):
         self.display = None
         self.image = None
         self.capture = True
+        self.blueprints = None
 
     def camera_blueprint(self):
         camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
@@ -54,9 +55,14 @@ class ProjectClient(object):
         settings.synchronous_mode = synchronous_mode
         self.world.apply_settings(settings)
 
-    def setup_car(self):
-        car_bp = self.world.get_blueprint_library().filter('vehicle.*')[0]
-        origin = carla.Transform(carla.Location(x=-9.746142, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+    def setup_car(self, origin):
+        #4
+        car_bp = random.choice(self.blueprints) #self.world.get_blueprint_library().filter('vehicle.*')[7]
+        #origin = carla.Transform(carla.Location(x=-9.746142, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        #origin = carla.Transform(carla.Location(x=-13.0, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        #origin = carla.Transform(carla.Location(x=-17.0, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        originWaypoint = self.world.get_map().get_waypoint(origin.location)
+        origin = originWaypoint.transform
         car = self.world.spawn_actor(car_bp, origin)
         agent = HumanAgent(car, target_speed=random.randint(30,100))
         destinationLocation = carla.Transform(carla.Location(x=-397.648987, y=26.758696, z=0.000000), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
@@ -70,7 +76,7 @@ class ProjectClient(object):
     def setup_camera(self):
         #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
         #self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.agents[0].get_vehicle())
-        camera_transform = carla.Transform(carla.Location(x=-9.746142, y=-185.418823, z=5.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        camera_transform = carla.Transform(carla.Location(x=-9.746142, y=-195.418823, z=5.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform)
         weak_self = weakref.ref(self)
         self.camera.listen(lambda image: weak_self().set_image(weak_self, image))
@@ -103,12 +109,24 @@ class ProjectClient(object):
 
     def run(self):
         try:
+            lane3Origin = carla.Transform(carla.Location(x=-9.746142, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+            lane2Origin = carla.Transform(carla.Location(x=-13.0, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+            lane1Origin = carla.Transform(carla.Location(x=-17.0, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
             pygame.init()
             self.client = carla.Client('127.0.0.1', 2000)
             self.client.set_timeout(10.0)
             self.world = self.client.get_world()
             #self.removeVehicles()
-            self.setup_car()
+            self.blueprintLibrary = self.world.get_blueprint_library()
+            self.blueprints = []
+            self.blueprints.append(self.blueprintLibrary.filter('vehicle.audi.a2')[0])
+            self.blueprints.append(self.blueprintLibrary.filter('vehicle.nissan.patrol')[0])
+            self.blueprints.append(self.blueprintLibrary.filter('vehicle.vespa.zx125')[0])
+            self.blueprints.append(self.blueprintLibrary.filter('vehicle.nissan.micra')[0])
+            self.blueprints.append(self.blueprintLibrary.filter('vehicle.kawasaki.ninja')[0])
+            self.blueprints.append(self.blueprintLibrary.filter('vehicle.dodge.charger_police')[0])
+            self.blueprints.append(self.blueprintLibrary.filter('vehicle.harley-davidson.low_rider')[0])
+            self.setup_car(lane1Origin)
             self.setup_camera()
             self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
             pygame_clock = pygame.time.Clock()
@@ -122,8 +140,13 @@ class ProjectClient(object):
                 pygame.display.flip()
                 pygame.event.pump()
                 counter = counter + 1
-                if counter % 50 == 0:
-                    self.setup_car()
+                if counter % 20 == 0:
+                    if counter % 60 == 0:
+                        self.setup_car(lane1Origin)
+                    elif counter % 40 == 0:
+                        self.setup_car(lane2Origin)
+                    else:
+                        self.setup_car(lane3Origin)
                 for agent in self.agents:
                     if agent.done():
                         print("The target has been reached, stopping the simulation")

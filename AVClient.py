@@ -56,6 +56,8 @@ class ProjectClient(object):
     def setup_car(self):
         car_bp = self.world.get_blueprint_library().filter('vehicle.*')[0]
         origin = carla.Transform(carla.Location(x=-5.746142, y=-175.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        originWaypoint = self.world.get_map().get_waypoint(origin.location)
+        origin = originWaypoint.transform
         car = self.world.spawn_actor(car_bp, origin)
         agent = DrivingLaneAgent(car, 60)
         destinationLocation = carla.Transform(carla.Location(x=-394.648987, y=26.758696, z=0.000000), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
@@ -122,7 +124,7 @@ class ProjectClient(object):
                 pygame.event.pump()
                 counter = counter + 1
                 #print(counter)
-                if counter % 50 == 0:
+                if counter % 30 == 0:
                     self.setup_car()
                 innerCounter = 1
                 for agent in self.agents:
