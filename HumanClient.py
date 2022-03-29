@@ -68,10 +68,10 @@ class ProjectClient(object):
         print(self.agents)
 
     def setup_camera(self):
-        camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
-        self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.agents[0].get_vehicle())
-        #camera_transform = carla.Transform(carla.Location(x=-9.746142, y=-185.418823, z=5.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-        #self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform)
+        #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
+        #self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform, attach_to=self.agents[0].get_vehicle())
+        camera_transform = carla.Transform(carla.Location(x=-9.746142, y=-185.418823, z=5.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        self.camera = self.world.spawn_actor(self.camera_blueprint(), camera_transform)
         weak_self = weakref.ref(self)
         self.camera.listen(lambda image: weak_self().set_image(weak_self, image))
         calibration = np.identity(3)
@@ -107,7 +107,7 @@ class ProjectClient(object):
             self.client = carla.Client('127.0.0.1', 2000)
             self.client.set_timeout(10.0)
             self.world = self.client.get_world()
-            # self.removeVehicles()
+            #self.removeVehicles()
             self.setup_car()
             self.setup_camera()
             self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)

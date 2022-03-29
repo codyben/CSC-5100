@@ -2,8 +2,8 @@ import carla
 from enum import Enum
 from shapely.geometry import Polygon
 
-from singleLaneLocalPlanner import SingleLaneLocalPlanner
-from singleLaneGlobalPlanner import SingleLaneGlobalRoutePlanner
+from multiLaneLocalPlanner import MultiLaneLocalPlanner
+from multiLaneGlobalPlanner import MultiLaneGlobalRoutePlanner
 from agents.tools.misc import get_speed, is_within_distance, get_trafficlight_trigger_location, compute_distance
 import random
 
@@ -85,8 +85,8 @@ class HumanAgent(object):
             self._max_steering = opt_dict['max_brake']
 
         # Initialize the planners
-        self._local_planner = SingleLaneLocalPlanner(self._vehicle, opt_dict=opt_dict)
-        self._global_planner = SingleLaneGlobalRoutePlanner(self._map, self._sampling_resolution)
+        self._local_planner = MultiLaneLocalPlanner(self._vehicle, opt_dict=opt_dict)
+        self._global_planner = MultiLaneGlobalRoutePlanner(self._map, self._sampling_resolution)
 
     def get_vehicle(self):
         return self._vehicle
