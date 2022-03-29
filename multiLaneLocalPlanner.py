@@ -5,6 +5,7 @@ import random
 import carla
 from agents.navigation.controller import VehiclePIDController
 from agents.tools.misc import draw_waypoints, get_speed
+from helper import determine_lane, LaneReference
 
 class RoadOption(Enum):
     VOID = -1
@@ -131,6 +132,7 @@ class MultiLaneLocalPlanner(object):
         # check we do not overflow the queue
         available_entries = self._waypoints_queue.maxlen - len(self._waypoints_queue)
         k = min(available_entries, k)
+        print(available_entries)
 
         for _ in range(k):
             last_waypoint = self._waypoints_queue[-1][0]
@@ -146,6 +148,7 @@ class MultiLaneLocalPlanner(object):
                 # random choice between the possible options
                 road_options_list = _retrieve_options(
                     next_waypoints, last_waypoint)
+                print(road_options_list)
                 road_option = random.choice(road_options_list)
                 next_waypoint = next_waypoints[road_options_list.index(
                     road_option)]
@@ -162,9 +165,17 @@ class MultiLaneLocalPlanner(object):
         :param clean_queue: bool
         :return:
         """
+
+        no_right_lane_plan = []
+        hit_intersection = False
         if clean_queue:
             self._waypoints_queue.clear()
-
+        for wp, action in current_plan:
+            if determine_lane(wp) is LaneReference.FAR_RIGHT:
+                wp = wp.get_left_lane()
+                action = RoadOption.CHANGELANELEFT
+            no_right_lane_plan.append((wp, action))
+        current_plan = no_right_lane_plan
         # Remake the waypoints queue if the new plan has a higher length than the queue
         new_plan_length = len(current_plan) + len(self._waypoints_queue)
         if new_plan_length > self._waypoints_queue.maxlen:

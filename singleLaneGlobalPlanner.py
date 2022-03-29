@@ -202,7 +202,9 @@ class SingleLaneGlobalRoutePlanner(object):
                         next_waypoint = waypoint.get_right_lane()
                         if next_waypoint is not None \
                                 and next_waypoint.lane_type == carla.LaneType.Driving \
-                                and waypoint.road_id == next_waypoint.road_id:
+                                and waypoint.road_id == next_waypoint.road_id \
+                                and next_waypoint.get_right_lane() is not None:
+
                             next_road_option = RoadOption.CHANGELANERIGHT
                             next_segment = self._localize(next_waypoint.transform.location)
                             if next_segment is not None:

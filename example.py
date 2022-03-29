@@ -17,6 +17,7 @@ vehicle_blueprint = world.get_blueprint_library().filter('model3')[0]
 
 
 s = random.choice(spawn_points)
+print(s)
 
 b_currier = lambda b: BehaviorAgent(b, behavior='aggressive')
 
