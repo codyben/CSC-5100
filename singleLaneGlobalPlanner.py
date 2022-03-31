@@ -41,7 +41,7 @@ class SingleLaneGlobalRoutePlanner(object):
             road_option = self._turn_decision(i, route)
             edge = self._graph.edges[route[i], route[i+1]]
             path = []
-            print('waypoint', current_waypoint.transform)
+            #print('waypoint', current_waypoint.transform)
 
             if edge['type'] != RoadOption.LANEFOLLOW and edge['type'] != RoadOption.VOID:
                 route_trace.append((current_waypoint, road_option))
@@ -81,7 +81,7 @@ class SingleLaneGlobalRoutePlanner(object):
         l1, l2 = origin, destination
         x1, y1, z1, x2, y2, z2 = np.round([l1.x, l1.y, l1.z, l2.x, l2.y, l2.z], 0)
         seg_dict['entryxyz'], seg_dict['exitxyz'] = (x1, y1, z1), (x2, y2, z2)
-        print('next', distance, origin, destination, current_waypoint.next(distance)[0].transform)
+        #print('next', distance, origin, destination, current_waypoint.next(distance)[0].transform)
         seg_dict['path'] = current_waypoint.next(distance)
         self._topology.append(seg_dict)
 

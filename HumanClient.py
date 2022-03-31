@@ -41,7 +41,8 @@ class ProjectClient(object):
         self.display = None
         self.image = None
         self.capture = True
-        self.blueprints = None
+        self.blueprints = []
+        self.collisionDetectors = []
 
     def camera_blueprint(self):
         camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
@@ -68,10 +69,10 @@ class ProjectClient(object):
         destinationLocation = carla.Transform(carla.Location(x=-397.648987, y=26.758696, z=0.000000), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         destinationWaypoint = self.world.get_map().get_waypoint(destinationLocation.location)
         self.destination = destinationWaypoint # waypoints[-1]
-        print('origin and destination', self.destination.transform.location, origin.location)
+        #print('origin and destination', self.destination.transform.location, origin.location)
         agent.set_destination(self.destination.transform.location, origin.location)
         self.agents.append(agent)
-        print(self.agents)
+        self.setup_collisionDetection(car)
 
     def setup_camera(self):
         #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
@@ -85,6 +86,14 @@ class ProjectClient(object):
         calibration[1, 2] = VIEW_HEIGHT / 2.0
         calibration[0, 0] = calibration[1, 1] = VIEW_WIDTH / (2.0 * np.tan(VIEW_FOV * np.pi / 360.0))
         self.camera.calibration = calibration
+
+    def setup_collisionDetection(self, vehicle):
+        collisionDetector = self.world.spawn_actor(self.blueprintLibrary.find('sensor.other.collision'), carla.Transform(), attach_to=vehicle)
+        collisionDetector.listen(lambda event: self.handleCollision(event))
+        self.collisionDetectors.append(collisionDetector)
+
+    def handleCollision(self, event):
+        print("collision", event.other_actor)
 
     @staticmethod
     def set_image(weak_self, img):
@@ -118,7 +127,6 @@ class ProjectClient(object):
             self.world = self.client.get_world()
             #self.removeVehicles()
             self.blueprintLibrary = self.world.get_blueprint_library()
-            self.blueprints = []
             self.blueprints.append(self.blueprintLibrary.filter('vehicle.audi.a2')[0])
             self.blueprints.append(self.blueprintLibrary.filter('vehicle.nissan.patrol')[0])
             self.blueprints.append(self.blueprintLibrary.filter('vehicle.vespa.zx125')[0])
