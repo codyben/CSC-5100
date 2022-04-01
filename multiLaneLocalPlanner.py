@@ -1,10 +1,12 @@
 from enum import Enum
 from collections import deque
+from multiprocessing.dummy import current_process
 import random
 
 import carla
 from agents.navigation.controller import VehiclePIDController
 from agents.tools.misc import draw_waypoints, get_speed
+from helper import LaneReference, determine_lane
 
 class RoadOption(Enum):
     VOID = -1
@@ -152,6 +154,46 @@ class MultiLaneLocalPlanner(object):
 
             self._waypoints_queue.append((next_waypoint, road_option))
 
+    def make_new_global_plan(self, current_plan):
+        allowed_lanes = [LaneReference.INTERIOR, LaneReference.FAR_RIGHT]
+        # Restrict to interior & right lanes.
+        new_plan = []
+        plan_length = len(current_plan) - 1
+        i = 0
+        while i < plan_length:
+            wp0, op0 = current_plan[i]
+            wp1, op1 = current_plan[i+1]
+            current_lane = determine_lane(wp0)
+            next_lane = determine_lane(wp1)
+
+            curr_ok = (current_lane in allowed_lanes) or wp0.is_junction
+            next_ok = (next_lane in allowed_lanes) or wp1.is_junction
+            if next_ok and curr_ok:
+                new_plan.extend([(wp0, op0), (wp1, op1)])
+                i += 1
+                continue
+
+            if current_lane == LaneReference.FAR_LEFT and next_lane == LaneReference.FAR_LEFT:
+                new_plan.extend([
+                    (wp0, RoadOption.CHANGELANERIGHT),
+                    (wp0.get_right_lane(), RoadOption.LANEFOLLOW),
+                    (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
+                ])
+            elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_LEFT:
+                # This might not work in every scenario....
+                new_plan.extend([
+                    (wp0, op0),
+                    (wp1, RoadOption.CHANGELANERIGHT),
+                    (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
+                ])
+            elif current_lane == LaneReference.FAR_LEFT:
+                new_plan.extend([
+                    (wp0, RoadOption.CHANGELANERIGHT),
+                    (wp0.get_right_lane(), RoadOption.LANEFOLLOW),
+                    (wp1, op1)
+                ])
+            i += 1
+        return new_plan
     def set_global_plan(self, current_plan, stop_waypoint_creation=True, clean_queue=True):
         """
         Adds a new plan to the local planner. A plan must be a list of [carla.Waypoint, RoadOption] pairs
@@ -162,9 +204,10 @@ class MultiLaneLocalPlanner(object):
         :param clean_queue: bool
         :return:
         """
+        current_plan = self.make_new_global_plan(current_plan)
         if clean_queue:
             self._waypoints_queue.clear()
-
+        print(current_plan)
         # Remake the waypoints queue if the new plan has a higher length than the queue
         new_plan_length = len(current_plan) + len(self._waypoints_queue)
         if new_plan_length > self._waypoints_queue.maxlen:
