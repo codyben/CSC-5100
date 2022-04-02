@@ -25,7 +25,9 @@ import weakref
 from humanAgent import HumanAgent
 import pygame
 import numpy as np
-import random
+import random, json
+
+random.seed(5100)
 
 VIEW_WIDTH = 1920//2
 VIEW_HEIGHT = 1080//2
@@ -37,6 +39,7 @@ class ProjectClient(object):
         self.world = None
         self.camera = None
         # self.car = None
+        self.agent_results = dict()
         self.agents = []
         self.display = None
         self.image = None
@@ -71,6 +74,10 @@ class ProjectClient(object):
         self.destination = destinationWaypoint # waypoints[-1]
         #print('origin and destination', self.destination.transform.location, origin.location)
         agent.set_destination(self.destination.transform.location, origin.location)
+        self.agent_results[agent.get_vehicle().id] = {
+            "timing": None,
+            "collisions": []
+        }
         self.agents.append(agent)
         self.setup_collisionDetection(car)
 
@@ -93,6 +100,12 @@ class ProjectClient(object):
         self.collisionDetectors.append(collisionDetector)
 
     def handleCollision(self, event):
+        the_car = event.actor
+        other_car = event.other_actor
+        collision_magnitude = event.normal_impulse.squared_length()
+        self.agent_results[the_car.id]['collisions'].append(
+            (other_car.id, collision_magnitude) # Log the car we hit, and the force of the collision.
+        )
         print("collision", event.other_actor)
 
     @staticmethod
@@ -148,27 +161,42 @@ class ProjectClient(object):
                 pygame.display.flip()
                 pygame.event.pump()
                 counter = counter + 1
-                if counter % 20 == 0:
-                    if counter % 60 == 0:
-                        self.setup_car(lane1Origin)
-                    elif counter % 40 == 0:
-                        self.setup_car(lane2Origin)
-                    else:
-                        self.setup_car(lane3Origin)
+                try: 
+                    if counter % 20 == 0:
+                        if counter % 60 == 0:
+                            self.setup_car(lane1Origin)
+                        elif counter % 40 == 0:
+                            self.setup_car(lane2Origin)
+                        else:
+                            self.setup_car(lane3Origin)
+                except RuntimeError as e:
+                    print(f"Caught RuntimeError: {str(e)}")
                 for agent in self.agents:
                     if agent.done():
                         print("The target has been reached, stopping the simulation")
-                    agent.get_vehicle().apply_control(agent.run_step())
+                        id, timing = agent.destroy_and_time()
+                        self.agent_results[id] = timing
+                        self.agents.remove(agent)
+                    try:
+                        agent.get_vehicle().apply_control(agent.run_step())
+                    except:
+                        pass
         finally:
-            self.set_synchronous_mode(False)
-            self.camera.destroy()
-            #self.car.destroy()
-            for agent in self.agents:
-                agent.get_vehicle().destroy()
-            pygame.quit()
+            try:
+                self.set_synchronous_mode(False)
+                self.camera.destroy()
+                #self.car.destroy()
+                for agent in self.agents:
+                    agent.get_vehicle().destroy()
+                pygame.quit()
+            except:
+                pass
+            with open("results.human.json", "w+") as f:
+                json.dump(self.agent_results, f)
 
 try:
     client = ProjectClient()
     client.run()
 finally:
     print('EXIT')
+    

@@ -207,7 +207,7 @@ class MultiLaneLocalPlanner(object):
         current_plan = self.make_new_global_plan(current_plan)
         if clean_queue:
             self._waypoints_queue.clear()
-        print(current_plan)
+
         # Remake the waypoints queue if the new plan has a higher length than the queue
         new_plan_length = len(current_plan) + len(self._waypoints_queue)
         if new_plan_length > self._waypoints_queue.maxlen:
