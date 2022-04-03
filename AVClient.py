@@ -6,6 +6,8 @@
 import glob
 import os
 import sys
+from constants import lane4Spawn
+from constants import humanDestination as _destination
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -21,7 +23,7 @@ except IndexError:
 # ==============================================================================
 
 import carla
-import weakref
+import weakref, json, time
 from drivingLaneAgent import DrivingLaneAgent
 import pygame
 import numpy as np
@@ -37,6 +39,7 @@ class ProjectClient(object):
         self.camera = None
         # self.car = None
         self.agents = []
+        self.agent_results = dict()
         self.display = None
         self.image = None
         self.capture = True
@@ -56,17 +59,21 @@ class ProjectClient(object):
 
     def setup_car(self):
         car_bp = self.world.get_blueprint_library().filter('vehicle.*')[0]
-        origin = carla.Transform(carla.Location(x=-5.746142, y=-175.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        origin = carla.Transform(carla.Location(**lane4Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         originWaypoint = self.world.get_map().get_waypoint(origin.location)
         origin = originWaypoint.transform
         car = self.world.spawn_actor(car_bp, origin)
         agent = DrivingLaneAgent(car, 60)
-        destinationLocation = carla.Transform(carla.Location(x=-394.648987, y=26.758696, z=0.000000), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        destinationLocation = carla.Transform(carla.Location(**_destination), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         destinationWaypoint = self.world.get_map().get_waypoint(destinationLocation.location)
         self.destination = destinationWaypoint # waypoints[-1]
         #print('origin and destination', self.destination.transform.location, origin.location)
         agent.set_destination(self.destination.transform.location, origin.location)
         self.agents.append(agent)
+        self.agent_results[agent.get_vehicle().id] = {
+            "timing": None,
+            "collisions": []
+        }
         self.setup_collisionDetection(car)
 
     def setup_camera(self):
@@ -88,7 +95,13 @@ class ProjectClient(object):
         self.collisionDetectors.append(collisionDetector)
 
     def handleCollision(self, event):
-        print("collision", event.other_actor)
+            the_car = event.actor
+            other_car = event.other_actor
+            collision_magnitude = event.normal_impulse.squared_length()
+            self.agent_results[the_car.id]['collisions'].append(
+                (other_car.id, collision_magnitude) # Log the car we hit, and the force of the collision.
+            )
+            print("collision: ", event.other_actor)
 
     @staticmethod
     def set_image(weak_self, img):
@@ -119,14 +132,14 @@ class ProjectClient(object):
             self.world = self.client.get_world()
             self.removeVehicles()
             self.blueprintLibrary = self.world.get_blueprint_library()
-            self.setup_car()
-            self.setup_camera()
+            # self.setup_car()
+            # self.setup_camera()
             self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
             pygame_clock = pygame.time.Clock()
             self.set_synchronous_mode(True)
             counter = 0
             while True:
-                self.world.tick()
+                self.world.tick() # Let the AV control the world ticks.
                 self.capture = True
                 pygame_clock.tick_busy_loop(20)
                 self.render(self.display)
@@ -135,23 +148,37 @@ class ProjectClient(object):
                 counter = counter + 1
                 #print(counter)
                 if counter % 30 == 0:
-                    self.setup_car()
+                    try:
+                        self.setup_car()
+                    except:
+                        print("Failed to spawn car.")
                 innerCounter = 1
                 for agent in self.agents:
                     #print("car")
                     #print(innerCounter)
                     if agent.done():
                         print("The target has been reached, stopping the simulation")
-                    agent.get_vehicle().apply_control(agent.run_step())
+                        id, timing = agent.destroy_and_time()
+                        self.agent_results[id] = timing
+                        self.agents.remove(agent)
+                    try:
+                        agent.get_vehicle().apply_control(agent.run_step())
+                    except:
+                        pass
                     innerCounter = innerCounter + 1
                 #self.car.apply_control(self.agent.run_step())
         finally:
-            self.set_synchronous_mode(False)
-            self.camera.destroy()
-            #self.car.destroy()
-            for agent in self.agents:
-                agent.get_vehicle().destroy()
-            pygame.quit()
+            try:
+                self.set_synchronous_mode(False)
+                self.camera.destroy()
+                #self.car.destroy()
+                for agent in self.agents:
+                    agent.get_vehicle().destroy()
+                pygame.quit()
+            except:
+                pass
+            with open("results.av.json", "w+") as f:
+                json.dump(self.agent_results, f)
 
 try:
     client = ProjectClient()

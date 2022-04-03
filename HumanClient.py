@@ -6,6 +6,8 @@
 import glob
 import os
 import sys
+from constants import lane1Spawn, lane2Spawn, lane3Spawn
+from constants import humanDestination as _destination
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -25,7 +27,8 @@ import weakref
 from humanAgent import HumanAgent
 import pygame
 import numpy as np
-import random, json
+import random, json, time
+from datetime import date, datetime, timedelta
 
 random.seed(5100)
 
@@ -68,8 +71,8 @@ class ProjectClient(object):
         originWaypoint = self.world.get_map().get_waypoint(origin.location)
         origin = originWaypoint.transform
         car = self.world.spawn_actor(car_bp, origin)
-        agent = HumanAgent(car, target_speed=random.randint(30,100))
-        destinationLocation = carla.Transform(carla.Location(x=-397.648987, y=26.758696, z=0.000000), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        agent = HumanAgent(car, target_speed=random.randint(30,80)) # adjusted speed down since some cars were veering off road in turns.
+        destinationLocation = carla.Transform(carla.Location(**_destination), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         destinationWaypoint = self.world.get_map().get_waypoint(destinationLocation.location)
         self.destination = destinationWaypoint # waypoints[-1]
         #print('origin and destination', self.destination.transform.location, origin.location)
@@ -106,7 +109,7 @@ class ProjectClient(object):
         self.agent_results[the_car.id]['collisions'].append(
             (other_car.id, collision_magnitude) # Log the car we hit, and the force of the collision.
         )
-        print("collision", event.other_actor)
+        print("collision: ", event.other_actor)
 
     @staticmethod
     def set_image(weak_self, img):
@@ -131,9 +134,9 @@ class ProjectClient(object):
 
     def run(self):
         try:
-            lane3Origin = carla.Transform(carla.Location(x=-9.746142, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-            lane2Origin = carla.Transform(carla.Location(x=-13.0, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-            lane1Origin = carla.Transform(carla.Location(x=-17.0, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+            lane3Origin = carla.Transform(carla.Location(**lane3Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+            lane2Origin = carla.Transform(carla.Location(**lane2Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+            lane1Origin = carla.Transform(carla.Location(**lane1Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
             pygame.init()
             self.client = carla.Client('127.0.0.1', 2000)
             self.client.set_timeout(10.0)
@@ -147,14 +150,21 @@ class ProjectClient(object):
             self.blueprints.append(self.blueprintLibrary.filter('vehicle.kawasaki.ninja')[0])
             self.blueprints.append(self.blueprintLibrary.filter('vehicle.dodge.charger_police')[0])
             self.blueprints.append(self.blueprintLibrary.filter('vehicle.harley-davidson.low_rider')[0])
-            self.setup_car(lane1Origin)
-            self.setup_camera()
+            # self.setup_car(lane1Origin)
+            # self.setup_camera()
             self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
             pygame_clock = pygame.time.Clock()
             self.set_synchronous_mode(True)
             counter = 0
+            old = time.time() + 0.1
             while True:
-                self.world.tick()
+                time.sleep(0.1)
+                # self.world.tick()
+                # if time.time() > old:
+                #     old = time.time() + 0.1
+                #     # allow world to still tick as we wait.
+                # else:
+                #     continue
                 self.capture = True
                 pygame_clock.tick_busy_loop(20)
                 self.render(self.display)
@@ -171,6 +181,7 @@ class ProjectClient(object):
                             self.setup_car(lane3Origin)
                 except RuntimeError as e:
                     print(f"Caught RuntimeError: {str(e)}")
+                    time.sleep(1)
                 for agent in self.agents:
                     if agent.done():
                         print("The target has been reached, stopping the simulation")
