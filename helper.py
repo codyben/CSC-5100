@@ -11,7 +11,7 @@ def waypoint_equals(alpha, beta):
 def determine_lane(waypoint) -> LaneReference:
     left = waypoint.get_left_lane()
     right = waypoint.get_right_lane()
-    if not left and not right:
+    if (not left and not right) or (left and right):
         return LaneReference.INTERIOR
     elif not left:
         return LaneReference.FAR_LEFT

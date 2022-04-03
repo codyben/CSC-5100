@@ -8,6 +8,7 @@ import os
 import sys
 from constants import lane4Spawn
 from constants import humanDestination as _destination
+from annotatemap import annotate_me
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -150,8 +151,8 @@ class ProjectClient(object):
                 if counter % 30 == 0:
                     try:
                         self.setup_car()
-                    except:
-                        print("Failed to spawn car.")
+                    except Exception as e:
+                        print(f"Spawn Error: {str(e)}")
                 innerCounter = 1
                 for agent in self.agents:
                     #print("car")

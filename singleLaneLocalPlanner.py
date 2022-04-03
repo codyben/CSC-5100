@@ -1,10 +1,12 @@
 from enum import Enum
 from collections import deque
+from multiprocessing.dummy import current_process
 import random
 
 import carla
 from agents.navigation.controller import VehiclePIDController
 from agents.tools.misc import draw_waypoints, get_speed
+from helper import LaneReference, determine_lane
 
 class RoadOption(Enum):
     VOID = -1
@@ -18,6 +20,19 @@ class RoadOption(Enum):
 
 class SingleLaneLocalPlanner(object):
     def __init__(self, vehicle, opt_dict={}):
+        """
+        :param vehicle: actor to apply to local planner logic onto
+        :param opt_dict: dictionary of arguments with different parameters:
+            dt: time between simulation steps
+            target_speed: desired cruise speed in Km/h
+            sampling_radius: distance between the waypoints part of the plan
+            lateral_control_dict: values of the lateral PID controller
+            longitudinal_control_dict: values of the longitudinal PID controller
+            max_throttle: maximum throttle applied to the vehicle
+            max_brake: maximum brake applied to the vehicle
+            max_steering: maximum steering applied to the vehicle
+            offset: distance between the route waypoints and the center of the lane
+        """
         self._vehicle = vehicle
         self._world = self._vehicle.get_world()
         self._map = self._world.get_map()
@@ -72,9 +87,11 @@ class SingleLaneLocalPlanner(object):
         self._init_controller()
 
     def reset_vehicle(self):
+        """Reset the ego-vehicle"""
         self._vehicle = None
 
     def _init_controller(self):
+        """Controller initialization"""
         self._vehicle_controller = VehiclePIDController(self._vehicle,
                                                         args_lateral=self._args_lateral_dict,
                                                         args_longitudinal=self._args_longitudinal_dict,
@@ -89,15 +106,30 @@ class SingleLaneLocalPlanner(object):
         self._waypoints_queue.append((self.target_waypoint, self.target_road_option))
 
     def set_speed(self, speed):
+        """
+        Changes the target speed
+        :param speed: new target speed in Km/h
+        :return:
+        """
         if self._follow_speed_limits:
             print("WARNING: The max speed is currently set to follow the speed limits. "
                   "Use 'follow_speed_limits' to deactivate this")
         self._target_speed = speed
 
     def follow_speed_limits(self, value=True):
+        """
+        Activates a flag that makes the max speed dynamically vary according to the spped limits
+        :param value: bool
+        :return:
+        """
         self._follow_speed_limits = value
 
     def _compute_next_waypoints(self, k=1):
+        """
+        Add new waypoints to the trajectory queue.
+        :param k: how many waypoints to compute
+        :return:
+        """
         # check we do not overflow the queue
         available_entries = self._waypoints_queue.maxlen - len(self._waypoints_queue)
         k = min(available_entries, k)
@@ -105,6 +137,7 @@ class SingleLaneLocalPlanner(object):
         for _ in range(k):
             last_waypoint = self._waypoints_queue[-1][0]
             next_waypoints = list(last_waypoint.next(self._sampling_radius))
+
             if len(next_waypoints) == 0:
                 break
             elif len(next_waypoints) == 1:
@@ -115,17 +148,65 @@ class SingleLaneLocalPlanner(object):
                 # random choice between the possible options
                 road_options_list = _retrieve_options(
                     next_waypoints, last_waypoint)
-                road_option = RoadOption.LANEFOLLOW
+                road_option = random.choice(road_options_list)
                 next_waypoint = next_waypoints[road_options_list.index(
                     road_option)]
 
             self._waypoints_queue.append((next_waypoint, road_option))
 
+    def make_new_global_plan(self, current_plan):
+        allowed_lanes = [LaneReference.INTERIOR, LaneReference.FAR_LEFT]
+        # Restrict to interior & right lanes.
+        new_plan = []
+        plan_length = len(current_plan) - 1
+        i = 0
+        while i < plan_length:
+            wp0, op0 = current_plan[i]
+            wp1, op1 = current_plan[i+1]
+            current_lane = determine_lane(wp0)
+            next_lane = determine_lane(wp1)
+            curr_ok = (current_lane in allowed_lanes) or wp0.is_junction
+            next_ok = (next_lane in allowed_lanes) or wp1.is_junction
+            if next_ok and curr_ok:
+                new_plan.extend([(wp0, op0), (wp1, op1)])
+                i += 1
+                continue
+
+            if current_lane == LaneReference.FAR_RIGHT and next_lane == LaneReference.FAR_RIGHT:
+                new_plan.extend([
+                    (wp0, RoadOption.CHANGELANELEFT),
+                    (wp0.get_left_lane(), RoadOption.LANEFOLLOW),
+                    (wp1.get_left_lane(), RoadOption.LANEFOLLOW)
+                ])
+            elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_RIGHT and not wp1.is_junction:
+                # This might not work in every scenario....
+                new_plan.extend([
+                    (wp0, op0),
+                    (wp1, RoadOption.CHANGELANERIGHT),
+                    (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
+                ])
+            elif current_lane == LaneReference.FAR_RIGHT:
+                new_plan.extend([
+                    (wp0, RoadOption.CHANGELANELEFT),
+                    (wp0.get_left_lane(), RoadOption.LANEFOLLOW),
+                    (wp1, op1)
+                ])
+            i += 1
+        return new_plan
     def set_global_plan(self, current_plan, stop_waypoint_creation=True, clean_queue=True):
+        """
+        Adds a new plan to the local planner. A plan must be a list of [carla.Waypoint, RoadOption] pairs
+        The 'clean_queue` parameter erases the previous plan if True, otherwise, it adds it to the old one
+        The 'stop_waypoint_creation' flag stops the automatic creation of random waypoints
+        :param current_plan: list of (carla.Waypoint, RoadOption)
+        :param stop_waypoint_creation: bool
+        :param clean_queue: bool
+        :return:
+        """
+        current_plan = self.make_new_global_plan(current_plan)
         if clean_queue:
             self._waypoints_queue.clear()
 
-        """
         # Remake the waypoints queue if the new plan has a higher length than the queue
         new_plan_length = len(current_plan) + len(self._waypoints_queue)
         if new_plan_length > self._waypoints_queue.maxlen:
@@ -133,14 +214,19 @@ class SingleLaneLocalPlanner(object):
             for wp in self._waypoints_queue:
                 new_waypoint_queue.append(wp)
             self._waypoints_queue = new_waypoint_queue
-        """
 
         for elem in current_plan:
             self._waypoints_queue.append(elem)
 
         self._stop_waypoint_creation = stop_waypoint_creation
 
-    def run_step(self, debug=True):
+    def run_step(self, debug=False):
+        """
+        Execute one step of local planning which involves running the longitudinal and lateral PID controllers to
+        follow the waypoints trajectory.
+        :param debug: boolean flag to activate waypoints debugging
+        :return: control to be applied
+        """
         if self._follow_speed_limits:
             self._target_speed = self._vehicle.get_speed_limit()
 
@@ -188,6 +274,10 @@ class SingleLaneLocalPlanner(object):
         return control
 
     def get_incoming_waypoint_and_direction(self, steps=3):
+        """
+        Returns direction and waypoint at a distance ahead defined by the user.
+            :param steps: number of steps to get the incoming waypoint.
+        """
         if len(self._waypoints_queue) > steps:
             return self._waypoints_queue[steps]
 
@@ -199,13 +289,26 @@ class SingleLaneLocalPlanner(object):
                 return None, RoadOption.VOID
 
     def get_plan(self):
+        """Returns the current plan of the local planner"""
         return self._waypoints_queue
 
     def done(self):
+        """
+        Returns whether or not the planner has finished
+        :return: boolean
+        """
         return len(self._waypoints_queue) == 0
 
 
 def _retrieve_options(list_waypoints, current_waypoint):
+    """
+    Compute the type of connection between the current active waypoint and the multiple waypoints present in
+    list_waypoints. The result is encoded as a list of RoadOption enums.
+    :param list_waypoints: list with the possible target waypoints in case of multiple options
+    :param current_waypoint: current active waypoint
+    :return: list of RoadOption enums representing the type of connection from the active waypoint to each
+             candidate in list_waypoints
+    """
     options = []
     for next_waypoint in list_waypoints:
         # this is needed because something we are linking to
@@ -219,6 +322,16 @@ def _retrieve_options(list_waypoints, current_waypoint):
 
 
 def _compute_connection(current_waypoint, next_waypoint, threshold=35):
+    """
+    Compute the type of topological connection between an active waypoint (current_waypoint) and a target waypoint
+    (next_waypoint).
+    :param current_waypoint: active waypoint
+    :param next_waypoint: target waypoint
+    :return: the type of topological connection encoded as a RoadOption enum:
+             RoadOption.STRAIGHT
+             RoadOption.LEFT
+             RoadOption.RIGHT
+    """
     n = next_waypoint.transform.rotation.yaw
     n = n % 360.0
 
