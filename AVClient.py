@@ -34,10 +34,8 @@ VIEW_HEIGHT = 1080//2
 VIEW_FOV = 90
 
 class ProjectClient(object):
-    def __init__(self):
-        self.client = carla.Client('127.0.0.1', 2000)
-        self.client.set_timeout(10.0)
-        self.world = self.client.get_world()
+    def __init__(self, world):
+        self.world = world
         self.vehicle_counter = 0
         self.counter = 0
         self.world.on_tick(lambda s: self.tick_me(s))
@@ -156,36 +154,3 @@ class ProjectClient(object):
     def tick_me(self, snapshot):
         self.attempt_spawn(snapshot)
         self.run_steps(snapshot)
-
-
-    def run(self):
-        try:
-            # pygame.init()
-            self.removeVehicles()
-            self.blueprintLibrary = self.world.get_blueprint_library()
-            # self.setup_car()
-            # self.setup_camera()
-            # self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
-            # pygame_clock = pygame.time.Clock()
-            self.set_synchronous_mode(True)
-            while True:
-                self.world.wait_for_tick()
-        finally:
-            try:
-                self.set_synchronous_mode(False)
-                self.camera.destroy()
-                #self.car.destroy()
-                for agent in self.agents:
-                    agent.get_vehicle().destroy()
-                    self.agents.remove(agent)
-                pygame.quit()
-            except:
-                pass
-            with open("results.av.json", "w+") as f:
-                json.dump(self.agent_results, f)
-
-try:
-    client = ProjectClient()
-    client.run()
-finally:
-    print('EXIT AV')

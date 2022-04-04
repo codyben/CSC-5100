@@ -30,17 +30,13 @@ import numpy as np
 import random, json, time
 from datetime import date, datetime, timedelta
 
-random.seed(5100)
-
 VIEW_WIDTH = 1920//2
 VIEW_HEIGHT = 1080//2
 VIEW_FOV = 90
 
 class ProjectClient(object):
-    def __init__(self):
-        self.client = carla.Client('127.0.0.1', 2000)
-        self.client.set_timeout(10.0)
-        self.world = self.client.get_world()
+    def __init__(self, world):
+        self.world = world
         self.vehicle_counter = 0
         self.counter = 0
         self.blueprints = []
@@ -175,47 +171,4 @@ class ProjectClient(object):
         self.attempt_spawn(snapshot)
         self.run_steps(snapshot)
 
-    def run(self):
-        try:
-            
-            # pygame.init()
-            #self.removeVehicles()
-            # self.setup_car(lane1Origin)
-            # self.setup_camera()
-            # self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
-            # pygame_clock = pygame.time.Clock()
-            self.set_synchronous_mode(True)
-            counter = 0
-            while True:
-                # self.world.tick()
-                # if time.time() > old:
-                #     old = time.time() + 0.1
-                #     # allow world to still tick as we wait.
-                # else:
-                #     continue
-                self.world.wait_for_tick()
-                self.capture = True
-                # pygame_clock.tick_busy_loop(20)
-                # self.render(self.display)
-                # pygame.display.flip()
-                # pygame.event.pump()
-                counter = counter + 1
-        finally:
-            try:
-                self.set_synchronous_mode(False)
-                self.camera.destroy()
-                #self.car.destroy()
-                for agent in self.agents:
-                    agent.get_vehicle().destroy()
-                pygame.quit()
-            except:
-                pass
-            with open("results.human.json", "w+") as f:
-                json.dump(self.agent_results, f)
-
-try:
-    client = ProjectClient()
-    client.run()
-finally:
-    print('EXIT HUMAN')
     

@@ -1,5 +1,10 @@
 import carla
-import time
+import time, random
+from sync_mode import CarlaSyncMode
+from HumanClient import ProjectClient as Human
+from AVClient import ProjectClient as AV
+
+random.seed(5100)
 
 client = carla.Client('127.0.0.1', 2000)
 client.set_timeout(10.0)
@@ -12,12 +17,14 @@ settings.synchronous_mode = True
 my_tm = client.get_trafficmanager()
 my_tm.set_synchronous_mode(True)
 world.apply_settings(init_settings)
-counter = 0
-while True:
-    time.sleep(0.2) # 5 fps, so 1/0.2 = 5
-    world.tick()
-    if counter % 2 == 0:
-        print("tick")
-    else:
-        print("tock")
-    counter += 1
+try:
+    with CarlaSyncMode(world) as w:
+
+        h = Human(world = w.world)
+        a = AV(world = w.world)
+        while True:
+            w.tick(9999)
+except:
+    pass
+finally:
+    pass
