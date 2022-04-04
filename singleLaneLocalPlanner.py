@@ -178,7 +178,7 @@ class SingleLaneLocalPlanner(object):
                     (wp0.get_left_lane(), RoadOption.LANEFOLLOW),
                     (wp1.get_left_lane(), RoadOption.LANEFOLLOW)
                 ])
-            elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_RIGHT and not wp1.is_junction:
+            elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_RIGHT:
                 # This might not work in every scenario....
                 new_plan.extend([
                     (wp0, op0),
