@@ -76,7 +76,7 @@ class ProjectClient(object):
         self.agents.append(agent)
         self.agent_results[agent.get_vehicle().id] = {
             "timing": None,
-            "collisions": []
+            "collisions": 0
         }
         self.setup_collisionDetection(car)
         self.vehicle_counter += 1
@@ -101,11 +101,7 @@ class ProjectClient(object):
 
     def handleCollision(self, event):
             the_car = event.actor
-            other_car = event.other_actor
-            collision_magnitude = event.normal_impulse.squared_length()
-            self.agent_results[the_car.id]['collisions'].append(
-                (other_car.id, collision_magnitude) # Log the car we hit, and the force of the collision.
-            )
+            self.agent_results[the_car.id]['collisions'] += 1
 
     @staticmethod
     def set_image(weak_self, img):
