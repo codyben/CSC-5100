@@ -35,9 +35,12 @@ VIEW_FOV = 90
 
 class ProjectClient(object):
     def __init__(self):
-        self.client = None
-        self.world = None
-        self.camera = None
+        self.client = carla.Client('127.0.0.1', 2000)
+        self.client.set_timeout(10.0)
+        self.world = self.client.get_world()
+        self.vehicle_counter = 0
+        self.counter = 0
+        self.world.on_tick(lambda s: self.tick_me(s))
         # self.car = None
         self.agents = []
         self.agent_results = dict()
@@ -76,6 +79,7 @@ class ProjectClient(object):
             "collisions": []
         }
         self.setup_collisionDetection(car)
+        self.vehicle_counter += 1
 
     def setup_camera(self):
         #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
@@ -102,7 +106,6 @@ class ProjectClient(object):
             self.agent_results[the_car.id]['collisions'].append(
                 (other_car.id, collision_magnitude) # Log the car we hit, and the force of the collision.
             )
-            print("collision: ", event.other_actor)
 
     @staticmethod
     def set_image(weak_self, img):
@@ -125,49 +128,52 @@ class ProjectClient(object):
         for vehicle in actor_list.filter('vehicle.*'):
             vehicle.destroy()
 
+    def run_steps(self, snapshot):
+        for agent in self.agents:
+            #print("car")
+            #print(innerCounter)
+            if agent.done():
+                print("The target has been reached, stopping the simulation")
+                id, timing = agent.destroy_and_time()
+                self.agent_results[id] = timing
+                self.vehicle_counter -= 1
+            try:
+                agent.get_vehicle().apply_control(agent.run_step())
+            except:
+                pass
+    def attempt_spawn(self, snapshot):
+        self.capture = True
+        # pygame_clock.tick_busy_loop(20)
+        # self.render(self.display)
+        # pygame.display.flip()
+        # pygame.event.pump()
+        #print(counter)
+        if self.counter % 30 == 0:
+            try:
+                if self.vehicle_counter < 6:
+                    self.setup_car()
+                    print("Spawned AV")
+            except Exception as e:
+                pass
+        self.counter += 1
+
+    def tick_me(self, snapshot):
+        self.attempt_spawn(snapshot)
+        self.run_steps(snapshot)
+
+
     def run(self):
         try:
-            pygame.init()
-            self.client = carla.Client('127.0.0.1', 2000)
-            self.client.set_timeout(10.0)
-            self.world = self.client.get_world()
+            # pygame.init()
             self.removeVehicles()
             self.blueprintLibrary = self.world.get_blueprint_library()
             # self.setup_car()
             # self.setup_camera()
-            self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
-            pygame_clock = pygame.time.Clock()
+            # self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
+            # pygame_clock = pygame.time.Clock()
             self.set_synchronous_mode(True)
-            counter = 0
             while True:
-                self.world.tick() # Let the AV control the world ticks.
-                self.capture = True
-                pygame_clock.tick_busy_loop(20)
-                self.render(self.display)
-                pygame.display.flip()
-                pygame.event.pump()
-                counter = counter + 1
-                #print(counter)
-                if counter % 30 == 0:
-                    try:
-                        self.setup_car()
-                    except Exception as e:
-                        print(f"Spawn Error: {str(e)}")
-                innerCounter = 1
-                for agent in self.agents:
-                    #print("car")
-                    #print(innerCounter)
-                    if agent.done():
-                        print("The target has been reached, stopping the simulation")
-                        id, timing = agent.destroy_and_time()
-                        self.agent_results[id] = timing
-                        self.agents.remove(agent)
-                    try:
-                        agent.get_vehicle().apply_control(agent.run_step())
-                    except:
-                        pass
-                    innerCounter = innerCounter + 1
-                #self.car.apply_control(self.agent.run_step())
+                self.world.wait_for_tick()
         finally:
             try:
                 self.set_synchronous_mode(False)
@@ -175,6 +181,7 @@ class ProjectClient(object):
                 #self.car.destroy()
                 for agent in self.agents:
                     agent.get_vehicle().destroy()
+                    self.agents.remove(agent)
                 pygame.quit()
             except:
                 pass
@@ -185,4 +192,4 @@ try:
     client = ProjectClient()
     client.run()
 finally:
-    print('EXIT')
+    print('EXIT AV')

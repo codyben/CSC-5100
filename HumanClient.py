@@ -38,17 +38,31 @@ VIEW_FOV = 90
 
 class ProjectClient(object):
     def __init__(self):
-        self.client = None
-        self.world = None
-        self.camera = None
+        self.client = carla.Client('127.0.0.1', 2000)
+        self.client.set_timeout(10.0)
+        self.world = self.client.get_world()
+        self.vehicle_counter = 0
+        self.counter = 0
+        self.blueprints = []
+        self.blueprintLibrary = self.world.get_blueprint_library()
+        self.blueprints.append(self.blueprintLibrary.filter('vehicle.audi.a2')[0])
+        self.blueprints.append(self.blueprintLibrary.filter('vehicle.nissan.patrol')[0])
+        self.blueprints.append(self.blueprintLibrary.filter('vehicle.vespa.zx125')[0])
+        self.blueprints.append(self.blueprintLibrary.filter('vehicle.nissan.micra')[0])
+        self.blueprints.append(self.blueprintLibrary.filter('vehicle.kawasaki.ninja')[0])
+        self.blueprints.append(self.blueprintLibrary.filter('vehicle.dodge.charger_police')[0])
+        self.blueprints.append(self.blueprintLibrary.filter('vehicle.harley-davidson.low_rider')[0])
+        self.world.on_tick(lambda s: self.tick_me(s))
         # self.car = None
         self.agent_results = dict()
         self.agents = []
         self.display = None
         self.image = None
         self.capture = True
-        self.blueprints = []
         self.collisionDetectors = []
+        self.lane3Origin = carla.Transform(carla.Location(**lane3Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        self.lane2Origin = carla.Transform(carla.Location(**lane2Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
+        self.lane1Origin = carla.Transform(carla.Location(**lane1Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
 
     def camera_blueprint(self):
         camera_bp = self.world.get_blueprint_library().find('sensor.camera.rgb')
@@ -63,6 +77,8 @@ class ProjectClient(object):
         self.world.apply_settings(settings)
 
     def setup_car(self, origin):
+        if self.vehicle_counter > 20:
+            return
         #4
         car_bp = random.choice(self.blueprints) #self.world.get_blueprint_library().filter('vehicle.*')[7]
         #origin = carla.Transform(carla.Location(x=-9.746142, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
@@ -83,6 +99,7 @@ class ProjectClient(object):
         }
         self.agents.append(agent)
         self.setup_collisionDetection(car)
+        self.vehicle_counter += 1
 
     def setup_camera(self):
         #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
@@ -109,7 +126,6 @@ class ProjectClient(object):
         self.agent_results[the_car.id]['collisions'].append(
             (other_car.id, collision_magnitude) # Log the car we hit, and the force of the collision.
         )
-        print("collision: ", event.other_actor)
 
     @staticmethod
     def set_image(weak_self, img):
@@ -132,66 +148,62 @@ class ProjectClient(object):
         for vehicle in actor_list.filter('vehicle.*'):
             vehicle.destroy()
 
+    def run_steps(self, snapshot):
+        for agent in self.agents:
+            if agent.done():
+                print("The target has been reached, stopping the simulation")
+                id, timing = agent.destroy_and_time()
+                self.agent_results[id] = timing
+                self.agents.remove(agent)
+                self.vehicle_counter -= 1
+            try:
+                agent.get_vehicle().apply_control(agent.run_step())
+            except:
+                pass
+    def attempt_spawn(self, snapshot):
+        if self.vehicle_counter > 20:
+            return
+        try: 
+            if self.counter % 20 == 0:
+                if self.counter % 60 == 0:
+                    self.setup_car(self.lane1Origin)
+                elif self.counter % 40 == 0:
+                    self.setup_car(self.lane2Origin)
+                else:
+                    self.setup_car(self.lane3Origin)
+        except RuntimeError as e:
+            # print(f"Caught RuntimeError: {str(e)}")
+            pass
+
+    def tick_me(self, snapshot):
+        self.attempt_spawn(snapshot)
+        self.run_steps(snapshot)
+
     def run(self):
         try:
-            lane3Origin = carla.Transform(carla.Location(**lane3Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-            lane2Origin = carla.Transform(carla.Location(**lane2Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-            lane1Origin = carla.Transform(carla.Location(**lane1Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-            pygame.init()
-            self.client = carla.Client('127.0.0.1', 2000)
-            self.client.set_timeout(10.0)
-            self.world = self.client.get_world()
+            
+            # pygame.init()
             #self.removeVehicles()
-            self.blueprintLibrary = self.world.get_blueprint_library()
-            self.blueprints.append(self.blueprintLibrary.filter('vehicle.audi.a2')[0])
-            self.blueprints.append(self.blueprintLibrary.filter('vehicle.nissan.patrol')[0])
-            self.blueprints.append(self.blueprintLibrary.filter('vehicle.vespa.zx125')[0])
-            self.blueprints.append(self.blueprintLibrary.filter('vehicle.nissan.micra')[0])
-            self.blueprints.append(self.blueprintLibrary.filter('vehicle.kawasaki.ninja')[0])
-            self.blueprints.append(self.blueprintLibrary.filter('vehicle.dodge.charger_police')[0])
-            self.blueprints.append(self.blueprintLibrary.filter('vehicle.harley-davidson.low_rider')[0])
             # self.setup_car(lane1Origin)
             # self.setup_camera()
-            self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
-            pygame_clock = pygame.time.Clock()
+            # self.display = pygame.display.set_mode((VIEW_WIDTH, VIEW_HEIGHT), pygame.HWSURFACE | pygame.DOUBLEBUF)
+            # pygame_clock = pygame.time.Clock()
             self.set_synchronous_mode(True)
             counter = 0
-            old = time.time() + 0.1
             while True:
-                time.sleep(0.1)
                 # self.world.tick()
                 # if time.time() > old:
                 #     old = time.time() + 0.1
                 #     # allow world to still tick as we wait.
                 # else:
                 #     continue
+                self.world.wait_for_tick()
                 self.capture = True
-                pygame_clock.tick_busy_loop(20)
-                self.render(self.display)
-                pygame.display.flip()
-                pygame.event.pump()
+                # pygame_clock.tick_busy_loop(20)
+                # self.render(self.display)
+                # pygame.display.flip()
+                # pygame.event.pump()
                 counter = counter + 1
-                try: 
-                    if counter % 20 == 0:
-                        if counter % 60 == 0:
-                            self.setup_car(lane1Origin)
-                        elif counter % 40 == 0:
-                            self.setup_car(lane2Origin)
-                        else:
-                            self.setup_car(lane3Origin)
-                except RuntimeError as e:
-                    print(f"Caught RuntimeError: {str(e)}")
-                    time.sleep(1)
-                for agent in self.agents:
-                    if agent.done():
-                        print("The target has been reached, stopping the simulation")
-                        id, timing = agent.destroy_and_time()
-                        self.agent_results[id] = timing
-                        self.agents.remove(agent)
-                    try:
-                        agent.get_vehicle().apply_control(agent.run_step())
-                    except:
-                        pass
         finally:
             try:
                 self.set_synchronous_mode(False)
@@ -209,5 +221,5 @@ try:
     client = ProjectClient()
     client.run()
 finally:
-    print('EXIT')
+    print('EXIT HUMAN')
     

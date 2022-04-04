@@ -6,7 +6,7 @@ from multiLaneLocalPlanner import MultiLaneLocalPlanner
 from multiLaneGlobalPlanner import MultiLaneGlobalRoutePlanner
 from agents.tools.misc import get_speed, is_within_distance, get_trafficlight_trigger_location, compute_distance
 import random
-from datetime import datetime
+import time
 
 class HumanAgent(object):
     def __init__(self, vehicle, target_speed=20, opt_dict={}):
@@ -14,7 +14,7 @@ class HumanAgent(object):
         self._world = self._vehicle.get_world()
         self._map = self._world.get_map()
         self._last_traffic_light = None
-        self._spawn_time = datetime.now()
+        self._spawn_time = time.time()
 
         # Base parameters
         self._ignore_traffic_lights = False
@@ -26,7 +26,7 @@ class HumanAgent(object):
         self._base_vehicle_threshold = 5.0  # meters
         self._max_brake = 0.5
 
-        behaviorNumber = random.randint(1,4)
+        behaviorNumber = random.randint(1,3)
         behavior = "normal"
         if behaviorNumber == 2:
             behavior = "cautious"
@@ -317,7 +317,7 @@ class HumanAgent(object):
         return (False, None, -1)
 
     def destroy_and_time(self):
-        delta = datetime.now() - self._spawn_time
+        delta = time.time() - self._spawn_time
         v = self.get_vehicle()
         id = v.id
         v.destroy()

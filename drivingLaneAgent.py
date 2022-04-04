@@ -5,7 +5,7 @@ from shapely.geometry import Polygon
 from singleLaneLocalPlanner import SingleLaneLocalPlanner
 from singleLaneGlobalPlanner import SingleLaneGlobalRoutePlanner
 from agents.tools.misc import get_speed, is_within_distance, get_trafficlight_trigger_location, compute_distance
-from datetime import datetime
+import time
 
 
 class DrivingLaneAgent(object):
@@ -14,7 +14,7 @@ class DrivingLaneAgent(object):
         self._world = self._vehicle.get_world()
         self._map = self._world.get_map()
         self._last_traffic_light = None
-        self._spawn_time = datetime.now()
+        self._spawn_time = time.time()
 
         # Base parameters
         self._ignore_traffic_lights = False
@@ -67,6 +67,9 @@ class DrivingLaneAgent(object):
 
     def get_global_planner(self):
         return self._global_planner
+
+    def get_global_plan(self):
+        return self._local_planner._waypoints_queue
 
     def set_destination(self, end_location, start_location=None):
         #if not start_location:
@@ -275,7 +278,7 @@ class DrivingLaneAgent(object):
 
 
     def destroy_and_time(self):
-        delta = datetime.now() - self._spawn_time
+        delta = time.time() - self._spawn_time
         v = self.get_vehicle()
         id = v.id
         v.destroy()
