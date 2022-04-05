@@ -175,23 +175,28 @@ class MultiLaneLocalPlanner(object):
 
             if current_lane == LaneReference.FAR_LEFT and next_lane == LaneReference.FAR_LEFT:
                 new_plan.extend([
-                    (wp0, RoadOption.CHANGELANERIGHT),
-                    (wp0.get_right_lane(), RoadOption.LANEFOLLOW),
+                    (wp0.get_right_lane(), RoadOption.CHANGELANERIGHT),
                     (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
                 ])
-            elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_LEFT:
-                # This might not work in every scenario....
-                new_plan.extend([
-                    (wp0, op0),
-                    (wp1, RoadOption.CHANGELANERIGHT),
-                    (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
-                ])
-            elif current_lane == LaneReference.FAR_LEFT:
-                new_plan.extend([
-                    (wp0, RoadOption.CHANGELANERIGHT),
-                    (wp0.get_right_lane(), RoadOption.LANEFOLLOW),
-                    (wp1, op1)
-                ])
+            # elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_LEFT:
+            #     # This might not work in every scenario....
+            #     new_plan.extend([
+            #         (wp0, RoadOption.LANEFOLLOW),
+            #         (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
+            #     ])
+            # elif current_lane == LaneReference.FAR_LEFT:
+            #     new_plan.extend([
+            #         (wp0, RoadOption.CHANGELANERIGHT),
+            #         (wp0.get_right_lane(), RoadOption.LANEFOLLOW),
+            #         (wp1, op1)
+            #     ])
+            # elif next_lane == LaneReference.FAR_LEFT:
+            #     new_plan.extend(
+            #         [
+            #             (wp0, RoadOption.LANEFOLLOW),
+            #             (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
+            #         ]
+            #     )
             i += 1
         return new_plan
     def set_global_plan(self, current_plan, stop_waypoint_creation=True, clean_queue=True):
@@ -221,7 +226,7 @@ class MultiLaneLocalPlanner(object):
 
         self._stop_waypoint_creation = stop_waypoint_creation
 
-    def run_step(self, debug=False):
+    def run_step(self, debug=True):
         """
         Execute one step of local planning which involves running the longitudinal and lateral PID controllers to
         follow the waypoints trajectory.

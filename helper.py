@@ -1,4 +1,4 @@
-from copy import copy
+import carla
 from enum import Enum
 
 class LaneReference(Enum):
@@ -11,6 +11,8 @@ def waypoint_equals(alpha, beta):
 def determine_lane(waypoint) -> LaneReference:
     left = waypoint.get_left_lane()
     right = waypoint.get_right_lane()
+    left = left.lane_type == carla.LaneType.Driving if left else False
+    right = right.lane_type == carla.LaneType.Driving if right else False
     if (not left and not right) or (left and right):
         return LaneReference.INTERIOR
     elif not left:

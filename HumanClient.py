@@ -37,6 +37,7 @@ VIEW_FOV = 90
 class ProjectClient(object):
     def __init__(self, world):
         self.world = world
+        self.map = self.world.get_map()
         self.vehicle_counter = 0
         self.counter = 0
         self.blueprints = []
@@ -50,8 +51,9 @@ class ProjectClient(object):
         self.blueprints.append(self.blueprintLibrary.filter('vehicle.harley-davidson.low_rider')[0])
         self.world.on_tick(lambda s: self.tick_me(s))
         # self.car = None
+        self.kill_spawn = False
         self.agent_results = dict()
-        self.agents = []
+        self.agents = ()
         self.display = None
         self.image = None
         self.capture = True
@@ -73,19 +75,17 @@ class ProjectClient(object):
         self.world.apply_settings(settings)
 
     def setup_car(self, origin):
-        if self.vehicle_counter > 20:
-            return
         #4
         car_bp = random.choice(self.blueprints) #self.world.get_blueprint_library().filter('vehicle.*')[7]
         #origin = carla.Transform(carla.Location(x=-9.746142, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         #origin = carla.Transform(carla.Location(x=-13.0, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         #origin = carla.Transform(carla.Location(x=-17.0, y=-180.418823, z=0.0), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-        originWaypoint = self.world.get_map().get_waypoint(origin.location)
+        originWaypoint = self.map.get_waypoint(origin.location)
         origin = originWaypoint.transform
         car = self.world.spawn_actor(car_bp, origin)
         agent = HumanAgent(car, target_speed=random.randint(30,80)) # adjusted speed down since some cars were veering off road in turns.
         destinationLocation = carla.Transform(carla.Location(**_destination), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
-        destinationWaypoint = self.world.get_map().get_waypoint(destinationLocation.location)
+        destinationWaypoint = self.map.get_waypoint(destinationLocation.location)
         self.destination = destinationWaypoint # waypoints[-1]
         #print('origin and destination', self.destination.transform.location, origin.location)
         agent.set_destination(self.destination.transform.location, origin.location)
@@ -93,9 +93,8 @@ class ProjectClient(object):
             "timing": None,
             "collisions": 0
         }
-        self.agents.append(agent)
+        self.agents = (*self.agents, agent)
         self.setup_collisionDetection(car)
-        self.vehicle_counter += 1
 
     def setup_camera(self):
         #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
@@ -145,16 +144,12 @@ class ProjectClient(object):
             if agent.done():
                 print("The target has been reached, stopping the simulation")
                 id, timing = agent.destroy_and_time()
-                self.agent_results[id] = timing
-                self.agents.remove(agent)
-                self.vehicle_counter -= 1
+                self.agent_results[id]['timing'] = timing
             try:
                 agent.get_vehicle().apply_control(agent.run_step())
             except:
                 pass
     def attempt_spawn(self, snapshot):
-        if self.vehicle_counter > 20:
-            return
         try: 
             if self.counter % 20 == 0:
                 if self.counter % 60 == 0:
@@ -167,8 +162,30 @@ class ProjectClient(object):
             # print(f"Caught RuntimeError: {str(e)}")
             pass
 
+    def write_data(self):
+        try:
+            with open("results.human.json") as f:
+                json.dump(self.agent_results, f)
+        except:
+            pass
+            # If we fail to lock the file since another tick callback has it.
+    def prune_vehicles(self):
+        self.agents = tuple(filter(lambda agent: not agent.done(), self.agents))
+
     def tick_me(self, snapshot):
-        self.attempt_spawn(snapshot)
-        self.run_steps(snapshot)
+        if not self.kill_spawn and len(self.agents) < 15:
+            self.attempt_spawn(snapshot)
+        else:
+           self.kill_spawn = True
+        self.prune_vehicles()
+        try:
+            self.run_steps(snapshot)
+        except:
+            pass
+        if self.kill_spawn and not self.agents:
+            self.write_data()
+            raise RuntimeError("All vehicles completed.")
+
+    
 
     

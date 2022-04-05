@@ -174,23 +174,22 @@ class SingleLaneLocalPlanner(object):
 
             if current_lane == LaneReference.FAR_RIGHT and next_lane == LaneReference.FAR_RIGHT:
                 new_plan.extend([
-                    (wp0, RoadOption.CHANGELANELEFT),
-                    (wp0.get_left_lane(), RoadOption.LANEFOLLOW),
+                    (wp0.get_left_lane(), RoadOption.CHANGELANELEFT),
                     (wp1.get_left_lane(), RoadOption.LANEFOLLOW)
                 ])
-            elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_RIGHT:
-                # This might not work in every scenario....
-                new_plan.extend([
-                    (wp0, op0),
-                    (wp1, RoadOption.CHANGELANERIGHT),
-                    (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
-                ])
-            elif current_lane == LaneReference.FAR_RIGHT:
-                new_plan.extend([
-                    (wp0, RoadOption.CHANGELANELEFT),
-                    (wp0.get_left_lane(), RoadOption.LANEFOLLOW),
-                    (wp1, op1)
-                ])
+            # elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_RIGHT:
+            #     # This might not work in every scenario....
+            #     new_plan.extend([
+            #         (wp0, op0),
+            #         (wp1, RoadOption.CHANGELANERIGHT),
+            #         (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
+            #     ])
+            # elif current_lane == LaneReference.FAR_RIGHT:
+            #     new_plan.extend([
+            #         (wp0, RoadOption.CHANGELANELEFT),
+            #         (wp0.get_left_lane(), RoadOption.LANEFOLLOW),
+            #         (wp1, op1)
+            #     ])
             i += 1
         return new_plan
     def set_global_plan(self, current_plan, stop_waypoint_creation=True, clean_queue=True):

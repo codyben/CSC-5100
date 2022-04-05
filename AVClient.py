@@ -40,7 +40,8 @@ class ProjectClient(object):
         self.counter = 0
         self.world.on_tick(lambda s: self.tick_me(s))
         # self.car = None
-        self.agents = []
+        self.kill_spawn = False
+        self.agents = ()
         self.agent_results = dict()
         self.display = None
         self.image = None
@@ -71,13 +72,12 @@ class ProjectClient(object):
         self.destination = destinationWaypoint # waypoints[-1]
         #print('origin and destination', self.destination.transform.location, origin.location)
         agent.set_destination(self.destination.transform.location, origin.location)
-        self.agents.append(agent)
+        self.agents = (*self.agents, agent)
         self.agent_results[agent.get_vehicle().id] = {
             "timing": None,
             "collisions": 0
         }
         self.setup_collisionDetection(car)
-        self.vehicle_counter += 1
 
     def setup_camera(self):
         #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
@@ -124,33 +124,46 @@ class ProjectClient(object):
 
     def run_steps(self, snapshot):
         for agent in self.agents:
-            #print("car")
-            #print(innerCounter)
             if agent.done():
                 print("The target has been reached, stopping the simulation")
                 id, timing = agent.destroy_and_time()
-                self.agent_results[id] = timing
-                self.vehicle_counter -= 1
+                self.agent_results[id]['timing'] = timing
             try:
                 agent.get_vehicle().apply_control(agent.run_step())
             except:
                 pass
     def attempt_spawn(self, snapshot):
         self.capture = True
-        # pygame_clock.tick_busy_loop(20)
-        # self.render(self.display)
-        # pygame.display.flip()
-        # pygame.event.pump()
-        #print(counter)
         if self.counter % 30 == 0:
             try:
                 if self.vehicle_counter < 6:
                     self.setup_car()
-                    print("Spawned AV")
             except Exception as e:
                 pass
         self.counter += 1
 
+    def write_data(self):
+        try:
+            with open("results.av.json", "w+") as f:
+                json.dump(self.agent_results, f)
+        except:
+            pass
+            # If we fail to lock the file since another tick callback has it.
+
+    def prune_vehicles(self):
+        self.agents = tuple(filter(lambda agent: not agent.done(), self.agents))
+
     def tick_me(self, snapshot):
-        self.attempt_spawn(snapshot)
-        self.run_steps(snapshot)
+        
+        if not self.kill_spawn and len(self.agents) < 6:
+            self.attempt_spawn(snapshot)
+        else:
+            self.kill_spawn = True
+            self.write_data()
+        self.prune_vehicles()
+        try:
+            self.run_steps(snapshot)
+        except:
+            pass
+        if self.kill_spawn and not self.agents:
+            raise RuntimeError("All vehicles completed.")
