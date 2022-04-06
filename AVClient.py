@@ -170,9 +170,11 @@ class ProjectClient(object):
         raise AllRouteCompletedException("Wrote data and completed.")
 
     def atomic_done_and_remove(self, agent):
+        count = len(self.agents)
         if agent.done():
             id, timing = agent.destroy_and_time()
             log_me(f"AV[{id=}] is done in {self.ticks} ticks")
+            log_me(f"AV Status: {self.spawnCap - count} of {self.spawnCap} complete")
             self.agent_results[id]['timing'] = timing
             self.agent_results[id]['ticks'] = self.ticks
             return True
@@ -194,9 +196,5 @@ class ProjectClient(object):
         if self.kill_spawn and not self.agents:
             self.write_data()
 
-        # if not self.cameraAttached and self.agents:
-        #     self.setup_camera(random.choice(self.agents).get_vehicle())
-        #     self.cameraAttached = True
-        # pygame.display.flip()
-        # pygame.event.pump()
+        return len(self.agents)
 

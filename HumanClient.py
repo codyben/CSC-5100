@@ -188,9 +188,11 @@ class ProjectClient(object):
         raise AllRouteCompletedException("Wrote data and completed.")
 
     def atomic_done_and_remove(self, agent):
+        count = len(self.agents)
         if agent.done():
             id, timing = agent.destroy_and_time()
             log_me(f"Human[{id=}] is done in {self.ticks} ticks")
+            log_me(f"Human Status: {self.spawnCap - count} of {self.spawnCap} complete")
             self.agent_results[id]['timing'] = timing
             self.agent_results[id]['ticks'] = self.ticks
             return True
@@ -211,6 +213,8 @@ class ProjectClient(object):
             pass
         if self.kill_spawn and not self.agents:
             self.write_data()
+
+        return len(self.agents)
 
     
 
