@@ -1,5 +1,9 @@
 import carla
 from enum import Enum
+import datetime
+
+class AllRouteCompletedException(Exception):
+    pass
 
 class LaneReference(Enum):
     FAR_LEFT = -1 # -1 since this will be the last element in the array
@@ -22,4 +26,8 @@ def determine_lane(waypoint) -> LaneReference:
 
 def is_lane_allowed(waypoint, constraint: LaneReference = LaneReference.INTERIOR) -> bool:
     return determine_lane(waypoint) == constraint
+
+def log_me(*content):
+    now = datetime.datetime.now().strftime("%Y-%m-%dT%H:%M:%S.%f")
+    print(f"{now}: ", *content)
 

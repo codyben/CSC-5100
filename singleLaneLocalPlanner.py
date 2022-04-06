@@ -177,6 +177,8 @@ class SingleLaneLocalPlanner(object):
                     (wp0.get_left_lane(), RoadOption.CHANGELANELEFT),
                     (wp1.get_left_lane(), RoadOption.LANEFOLLOW)
                 ])
+            else:
+                new_plan.extend([(wp0, op0), (wp1, op1)])
             # elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_RIGHT:
             #     # This might not work in every scenario....
             #     new_plan.extend([
@@ -219,7 +221,7 @@ class SingleLaneLocalPlanner(object):
 
         self._stop_waypoint_creation = stop_waypoint_creation
 
-    def run_step(self, debug=False):
+    def run_step(self, debug=True):
         """
         Execute one step of local planning which involves running the longitudinal and lateral PID controllers to
         follow the waypoints trajectory.

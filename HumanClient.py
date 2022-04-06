@@ -3,11 +3,10 @@
 # ==============================================================================
 
 
+from distutils.spawn import spawn
 import glob
 import os
 import sys
-from constants import lane1Spawn, lane2Spawn, lane3Spawn
-from constants import humanDestination as _destination
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -29,15 +28,25 @@ import pygame
 import numpy as np
 import random, json, time
 from datetime import date, datetime, timedelta
+from helper import AllRouteCompletedException, log_me
+from threading import RLock # https://stackoverflow.com/questions/1312331/using-a-global-dictionary-with-threads-in-python
+from constants import lane1Spawn, lane2Spawn, lane3Spawn
+from constants import humanDestination as _destination
+
 
 VIEW_WIDTH = 1920//2
 VIEW_HEIGHT = 1080//2
 VIEW_FOV = 90
 
 class ProjectClient(object):
-    def __init__(self, world):
-        self.world = world
+    def __init__(self, world, spawnCap = 15):
+        self.spawnCap = spawnCap
+        self.world = world()
         self.map = self.world.get_map()
+        self.lock = RLock()
+        # weak_self = weakref.ref(self)
+        # self.world.on_tick(lambda s: weak_self().tick_me(s))
+        self.ticks = 0
         self.vehicle_counter = 0
         self.counter = 0
         self.blueprints = []
@@ -49,7 +58,7 @@ class ProjectClient(object):
         self.blueprints.append(self.blueprintLibrary.filter('vehicle.kawasaki.ninja')[0])
         self.blueprints.append(self.blueprintLibrary.filter('vehicle.dodge.charger_police')[0])
         self.blueprints.append(self.blueprintLibrary.filter('vehicle.harley-davidson.low_rider')[0])
-        self.world.on_tick(lambda s: self.tick_me(s))
+        # self.world.on_tick(lambda s: self.tick_me(s))
         # self.car = None
         self.kill_spawn = False
         self.agent_results = dict()
@@ -57,7 +66,7 @@ class ProjectClient(object):
         self.display = None
         self.image = None
         self.capture = True
-        self.collisionDetectors = []
+        self.collisionDetectors = {}
         self.lane3Origin = carla.Transform(carla.Location(**lane3Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         self.lane2Origin = carla.Transform(carla.Location(**lane2Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
         self.lane1Origin = carla.Transform(carla.Location(**lane1Spawn), carla.Rotation(pitch=0.0, yaw=90.0, roll=0.0))
@@ -91,10 +100,12 @@ class ProjectClient(object):
         agent.set_destination(self.destination.transform.location, origin.location)
         self.agent_results[agent.get_vehicle().id] = {
             "timing": None,
-            "collisions": 0
+            "collisions": 0, 
+            "ticks": 0
         }
         self.agents = (*self.agents, agent)
-        self.setup_collisionDetection(car)
+        # weak_self = weakref.ref(self)
+        # ProjectClient.setup_collisionDetection(weak_self, agent.get_vehicle())
 
     def setup_camera(self):
         #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
@@ -109,14 +120,20 @@ class ProjectClient(object):
         calibration[0, 0] = calibration[1, 1] = VIEW_WIDTH / (2.0 * np.tan(VIEW_FOV * np.pi / 360.0))
         self.camera.calibration = calibration
 
-    def setup_collisionDetection(self, vehicle):
+    @staticmethod
+    def setup_collisionDetection(weak_self, vehicle):
+        self = weak_self()
+        if not self:
+            return
         collisionDetector = self.world.spawn_actor(self.blueprintLibrary.find('sensor.other.collision'), carla.Transform(), attach_to=vehicle)
-        collisionDetector.listen(lambda event: self.handleCollision(event))
-        self.collisionDetectors.append(collisionDetector)
+        collisionDetector.listen(lambda event: ProjectClient.handleCollision(self, event))
+        self.collisionDetectors[vehicle.id] = collisionDetector
 
-    def handleCollision(self, event):
+    @staticmethod
+    def handleCollision(weak_self, event):
+        #https://github.com/carla-simulator/carla/blob/master/PythonAPI/examples/manual_control.py
         the_car = event.actor
-        self.agent_results[the_car.id]['collisions'] += 1
+        weak_self.agent_results[the_car.id]['collisions'] += 1
 
     @staticmethod
     def set_image(weak_self, img):
@@ -140,16 +157,15 @@ class ProjectClient(object):
             vehicle.destroy()
 
     def run_steps(self, snapshot):
+        self.prune_vehicles()
         for agent in self.agents:
-            if agent.done():
-                print("The target has been reached, stopping the simulation")
-                id, timing = agent.destroy_and_time()
-                self.agent_results[id]['timing'] = timing
             try:
                 agent.get_vehicle().apply_control(agent.run_step())
             except:
                 pass
+
     def attempt_spawn(self, snapshot):
+        self.counter += 1
         try: 
             if self.counter % 20 == 0:
                 if self.counter % 60 == 0:
@@ -164,27 +180,37 @@ class ProjectClient(object):
 
     def write_data(self):
         try:
-            with open("results.human.json") as f:
+            with open("results.human.json", "w+") as f:
                 json.dump(self.agent_results, f)
         except:
             pass
             # If we fail to lock the file since another tick callback has it.
+        raise AllRouteCompletedException("Wrote data and completed.")
+
+    def atomic_done_and_remove(self, agent):
+        if agent.done():
+            id, timing = agent.destroy_and_time()
+            log_me(f"Human[{id=}] is done in {self.ticks} ticks")
+            self.agent_results[id]['timing'] = timing
+            self.agent_results[id]['ticks'] = self.ticks
+            return True
+        return False
+
     def prune_vehicles(self):
-        self.agents = tuple(filter(lambda agent: not agent.done(), self.agents))
+        self.agents = tuple(filter(lambda agent: not self.atomic_done_and_remove(agent), self.agents))
 
     def tick_me(self, snapshot):
-        if not self.kill_spawn and len(self.agents) < 15:
+        self.ticks += 1
+        if not self.kill_spawn and len(self.agents) < self.spawnCap:
             self.attempt_spawn(snapshot)
         else:
            self.kill_spawn = True
-        self.prune_vehicles()
         try:
             self.run_steps(snapshot)
         except:
             pass
         if self.kill_spawn and not self.agents:
             self.write_data()
-            raise RuntimeError("All vehicles completed.")
 
     
 

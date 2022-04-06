@@ -28,6 +28,12 @@ humanDestination = {
     "z": 0.0
 }
 
+avDestination = {
+    "x": 8.0735,
+    "y": 197.5269,
+    "z": 0.0
+}
+
 # crossTrafficSpawn = {
 #     "x":
 # }

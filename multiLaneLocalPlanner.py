@@ -178,6 +178,8 @@ class MultiLaneLocalPlanner(object):
                     (wp0.get_right_lane(), RoadOption.CHANGELANERIGHT),
                     (wp1.get_right_lane(), RoadOption.LANEFOLLOW)
                 ])
+            else:
+                new_plan.extend([(wp0, op0), (wp1, op1)])
             # elif current_lane == LaneReference.INTERIOR and next_lane == LaneReference.FAR_LEFT:
             #     # This might not work in every scenario....
             #     new_plan.extend([
