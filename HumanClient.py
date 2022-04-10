@@ -7,6 +7,7 @@ from distutils.spawn import spawn
 import glob
 import os
 import sys
+from csv import DictWriter
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -184,6 +185,17 @@ class ProjectClient(object):
                 json.dump(self.agent_results, f)
         except:
             pass
+
+        try:
+            with open("results.human.csv", "w+") as f:
+                vals = self.agent_results.values()
+                writer = DictWriter(f, fieldnames=vals[0].keys())
+                writer.writeheeader()
+                writer.writerows(vals)
+        except:
+            pass
+
+
             # If we fail to lock the file since another tick callback has it.
         raise AllRouteCompletedException("Wrote data and completed.")
 
@@ -214,7 +226,7 @@ class ProjectClient(object):
         if self.kill_spawn and not self.agents:
             self.write_data()
 
-        return len(self.agents)
+        return ( len(self.agents), tuple( agent.get_vehicle().id for agent in self.agents ) )
 
     
 
