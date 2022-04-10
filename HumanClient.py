@@ -104,8 +104,7 @@ class ProjectClient(object):
             "ticks": 0
         }
         self.agents = (*self.agents, agent)
-        # weak_self = weakref.ref(self)
-        # ProjectClient.setup_collisionDetection(weak_self, agent.get_vehicle())
+        self.setup_collisionDetection(agent.get_vehicle())
 
     def setup_camera(self):
         #camera_transform = carla.Transform(carla.Location(x=-5.5, z=2.8), carla.Rotation(pitch=-15))
@@ -120,20 +119,14 @@ class ProjectClient(object):
         calibration[0, 0] = calibration[1, 1] = VIEW_WIDTH / (2.0 * np.tan(VIEW_FOV * np.pi / 360.0))
         self.camera.calibration = calibration
 
-    @staticmethod
-    def setup_collisionDetection(weak_self, vehicle):
-        self = weak_self()
-        if not self:
-            return
+    def setup_collisionDetection(self, vehicle):
         collisionDetector = self.world.spawn_actor(self.blueprintLibrary.find('sensor.other.collision'), carla.Transform(), attach_to=vehicle)
-        collisionDetector.listen(lambda event: ProjectClient.handleCollision(self, event))
+        collisionDetector.listen(lambda event: self.handleCollision(event))
         self.collisionDetectors[vehicle.id] = collisionDetector
 
-    @staticmethod
-    def handleCollision(weak_self, event):
+    def handleCollision(self, event):
         #https://github.com/carla-simulator/carla/blob/master/PythonAPI/examples/manual_control.py
-        the_car = event.actor
-        weak_self.agent_results[the_car.id]['collisions'] += 1
+        self.agent_results[event.actor.id]['collisions'] += 1
 
     @staticmethod
     def set_image(weak_self, img):
@@ -215,7 +208,3 @@ class ProjectClient(object):
             self.write_data()
 
         return len(self.agents)
-
-    
-
-    

@@ -186,6 +186,7 @@ def main():
                     font.render('% 5d FPS (simulated)' % fps, True, (255, 255, 255)),
                     (8, 28))
                 pygame.display.flip()
+                pygame.event.pump()
 
     finally:
 
