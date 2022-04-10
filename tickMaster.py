@@ -33,7 +33,7 @@ try:
         while not(HUMAN_DONE and AV_DONE):
             try:
                 if not HUMAN_DONE:
-                    remain = human.tick_me(None)
+                    remain, actor_ids = human.tick_me(None)
             except AllRouteCompletedException:
                 log_me("Wrote Human Data")
                 log_me("Human vehicles completed.")
@@ -41,7 +41,7 @@ try:
             
             try:
                 if not AV_DONE:
-                    remain = av.tick_me(None)
+                    remain, actor_ids = av.tick_me(None)
             except AllRouteCompletedException:
                 log_me("Wrote AV Data")
                 log_me("Autonomous vehicles completed.")

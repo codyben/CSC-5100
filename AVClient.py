@@ -10,7 +10,8 @@ import random
 from constants import lane4Spawn
 from constants import avDestination as _destination
 from annotatemap import annotate_me
-from threading import RLock
+# from threading import RLock
+from csv import DictWriter
 
 try:
     sys.path.append(glob.glob('../carla/dist/carla-*%d.%d-%s.egg' % (
@@ -158,7 +159,17 @@ class ProjectClient(object):
                 json.dump(self.agent_results, f)
         except:
             pass
-            # If we fail to lock the file since another tick callback has it.
+            # If we fail to lock the file since another tick callback has it
+
+        try:
+            with open("results.av.csv", "w+") as f:
+                vals = self.agent_results.values()
+                writer = DictWriter(f, fieldnames=vals[0].keys())
+                writer.writeheeader()
+                writer.writerows(vals)
+        except:
+            pass
+
         raise AllRouteCompletedException("Wrote data and completed.")
 
     def atomic_done_and_remove(self, agent):
@@ -188,5 +199,5 @@ class ProjectClient(object):
         if self.kill_spawn and not self.agents:
             self.write_data()
 
-        return len(self.agents)
+        return ( len(self.agents), tuple( agent.get_vehicle().id for agent in self.agents ) )
 
