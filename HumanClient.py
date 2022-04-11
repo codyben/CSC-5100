@@ -219,12 +219,8 @@ class ProjectClient(object):
         if self.kill_spawn and not self.agents:
             self.write_data()
 
-<<<<<<< HEAD
-        return len(self.agents)
-=======
         return ( len(self.agents), tuple( agent.get_vehicle().id for agent in self.agents ) )
 
     
 
     
->>>>>>> 06996fa17c9951f07935d372d70df9c49261767f
