@@ -204,7 +204,7 @@ class SingleLaneLocalPlanner(object):
         :param clean_queue: bool
         :return:
         """
-        current_plan = self.make_new_global_plan(current_plan)
+        # current_plan = self.make_new_global_plan(current_plan)
         if clean_queue:
             self._waypoints_queue.clear()
 
