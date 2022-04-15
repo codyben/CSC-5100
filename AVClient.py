@@ -44,7 +44,7 @@ class ProjectClient(object):
         self.vehicle_counter = 0
         self.counter = 0
         self.ticks = 0
-        self.lock = RLock()
+        # self.lock = RLock()
         # weak_self = weakref.ref(self)
         # self.world.on_tick(lambda s: weak_self().tick_me(s))
         # self.car = None
